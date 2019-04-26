@@ -1,0 +1,93 @@
+#1 Install PPP and RP-PPPoE
+sudo apt-get install ppp
+> wget http://www.roaringpenguin.com/files/download/rp-pppoe-3.10.tar.gz
+> tar -zxf rp-pppoe-3.10.tar.gz
+> cd rp-pppoe-3.10/src
+> ./configure
+> make
+> sudo make install
+
+#2 Setup PPPoE Settings
+/etc/ppp/pppoe-server-options:
+
+# PPP options for the PPPoE Server
+# LOC: GPL
+#require-pap
+require-chap
+login
+lcp-echo-interval 10
+lcp-echo-failure 2
+ms-dns 4.2.2.1
+ms-dns 4.2.2.3
+netmask 255.255.255.0
+defaultroute
+noipdefault
+usepeerdns
+
+/etc/ppp/chap-secrets:
+
+# Secrets for authentication using CHAP
+# client              server   secret                 IP addresses
+"alice"               *        "1234"                 172.32.50.2
+
+sudo chmod 600 /etc/ppp/chap-secrets ( To Give Permission )
+Last of all, setup the IP addresses to lease for the PPPoE Server. We’re giving IP addresses 172.32.50.2 to 172.32.50.30:
+ 
+/etc/ppp/ipaddress_pool:
+
+172.32.50.2-30
+
+#3 Set PPPoE Scripts
+
+/etc/ppp/start_pppoe.
+ 
+/etc/ppp/pppoe_start:
+
+#!/bin/bash
+##############################
+# Simple script that starts PPPoE Server
+##############################
+
+# Enable IP Forwarding
+echo 1 > /proc/sys/net/ipv4/ip_forward
+
+# Start PPPoE Server
+pppoe-server -C isp -L 172.32.50.1 -p /etc/ppp/ipaddress_pool -I eth1 -m 1412
+
+# Set Firewall rules
+iptables -t nat -F POSTROUTING
+iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+
+To stop PPPOE Server; do the following:
+/etc/ppp/pppoe_stop:
+
+#!/bin/bash
+##############################
+# Simple script that stops PPPoE Server
+##############################
+
+# Disable IP Forwarding
+echo 0 > /proc/sys/net/ipv4/ip_forward
+
+# Kill PPPoE Server
+killall pppoe-server
+killall pppd
+
+# Flush the IPtable rules.
+iptables -t nat -F POSTROUTING
+
+#4 Automatically start/stop PPPoE Server
+
+auto eth1
+iface eth1 inet manual
+post-up /etc/ppp/pppoe_start
+post-down /etc/ppp/pppoe_stop
+
+Troubleshooting
+
+auto eth1
+iface eth1 inet manual
+up ifconfig $IFACE 0.0.0.0 up
+post-up /etc/ppp/pppoe_start
+post-down /etc/ppp/pppoe_stop
+down ifconfig $IFACE down
