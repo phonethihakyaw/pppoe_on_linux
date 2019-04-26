@@ -91,3 +91,5 @@ up ifconfig $IFACE 0.0.0.0 up
 post-up /etc/ppp/pppoe_start
 post-down /etc/ppp/pppoe_stop
 down ifconfig $IFACE down
+
+Caution : This configuration is currently under testing
